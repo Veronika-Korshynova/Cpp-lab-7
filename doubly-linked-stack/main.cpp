@@ -6,6 +6,41 @@
 #include <stdexcept>
 #include <string>
 
+class Show {
+    int id;
+    std::string name;
+    std::string review;
+public:
+    Show(int id, std::string name) : id{ id }, name{ name }, review{""} {}
+    Show(int id, std::string name, std::string review): id{ id }, name{ name }, review{ review } { }
+    ~Show() = default;
+    
+    
+    friend std::ostream & operator<<(std::ostream & stream, Show show) {
+        stream << "show " << show.name;
+        if (!show.review.empty())
+            stream << " review: " << show.review << std::endl;
+        else stream << std::endl;
+        return stream;
+    }
+    
+    bool operator==(Show show) {
+        return show.name == name && show.review == review;
+    }
+    
+    bool operator!=(Show show) {
+        return !(*this == show);
+    }
+    
+    bool operator>(Show show) {
+        return strcmp(show.name.c_str(), name.c_str()) > 0;
+    }
+    
+    bool operator<(Show show) {
+        return strcmp(show.name.c_str(), name.c_str()) < 0;
+    }
+};
+
 template<typename T>
 class Stack {
 private:
@@ -17,11 +52,7 @@ private:
         explicit Node(T data): data{std::move(data)} { }
         Node(T data, Node *bottom): data{std::move(data)}, down{bottom} { }
         
-        ~Node() {
-            if (down != nullptr) {
-                delete down;
-            }
-        }
+        ~Node() = default;
     };
     
     struct Iter {
@@ -130,18 +161,24 @@ private:
     Node * bottom = nullptr;
     
     int _size = 0;
+    bool use_dublicates = true;
     
 public:
     typedef Iter iterator;
     
     Stack() { }
+    Stack(bool use_dublicates): use_dublicates{ use_dublicates } { }
     ~Stack() {
-        if (_size > 0 && top != nullptr) {
-            delete top;
-        }
+        for (int i = 0; i < _size && top != nullptr; i++)
+            pop();
     }
     
     void push(T data) {
+        if (!use_dublicates) {
+            iterator dup = find(data);
+            if (dup) return;
+        }
+        
         if (_size == 0) {
             bottom = top = new Node(data);
         } else {
@@ -158,7 +195,11 @@ public:
         }
         Node * tmp = top;
         top = top->down;
-        top->up = nullptr;
+        
+        if (top != nullptr) {
+            top->up = nullptr;
+        }
+        
         _size--;
         
         if (_size == 0) {
@@ -246,19 +287,6 @@ int read_int() {
     }
 }
 
-float read_float() {
-    while (true) {
-        std::string buffer;
-        std::getline(std::cin, buffer);
-        try {
-            return std::stof(buffer);
-        } catch(...) {
-            std::cout << "not a float number" << std::endl;
-            continue;
-        }
-    }
-}
-
 std::string read_string() {
     while (true) {
         std::string buffer;
@@ -266,6 +294,23 @@ std::string read_string() {
         if (buffer.size() > 0) {
             return buffer;
         }
+    }
+}
+
+Show read_show(int id) {
+    std::cout << "enter show name: ";
+    std::string name = read_string();
+    std::cout << "enter show review (empty if none): ";
+    std::string review;
+    std::getline(std::cin, review);
+    return Show(id, name, review);
+}
+
+template<typename T>
+void print_stack(Stack<T> &stack) {
+    std::cout << "stack items: " << std::endl;
+    for (Stack<Show>::iterator i = stack.begin(); i; i--) {
+        std::cout << " " << i;
     }
 }
 
@@ -283,70 +328,71 @@ int main(int argc, const char * argv[]) {
     std::set_terminate(my_terminate);
     std::set_unexpected(my_unexpected);
     
-    std::cout << "enter count for first stack: ";
-    int first_count = read_int();
-    if (first_count < 0) {
-        std::cout << "count cannot be < 0" << std::endl;
-        return 1;
-    }
-    
-    std::cout << "enter count for second stack: ";
-    int second_count = read_int();
-    if (second_count < 0) {
-        std::cout << "count cannot be < 0" << std::endl;
-    }
-    
-    Stack<int> first;
-    Stack<float> second;
-    
-    std::cout << "items for first stack:" << std::endl;
-    for (int i = 0; i < first_count; i++) {
-        std::cout << (i + 1) << "/" << first_count << ":";
-        int number = read_int();
-        first.push(number);
-    }
-    
-    
-    std::cout << "items for second stack:" << std::endl;
-    for (int i = 0; i < second_count; i++) {
-        std::cout << (i + 1) << "/" << second_count << ":";
-        float number = read_float();
-        second.push(number);
-    }
-    
-    std::cout << "first stack: " << std::endl;
-    for (Stack<int>::iterator i = first.begin(); i; i--) {
-        std::cout << " " << *i << std::endl;
-    }
-    
-    std::cout << "second stack: " << std::endl;
-    for (Stack<float>::iterator i = second.begin(); i; i--) {
-        std::cout << " " << *i << std::endl;
-    }
-    
-    std::cout << "sorting second stack" << std::endl;
-    second.sort();
-    std::cout << "second stack: " << std::endl;
-    for (Stack<float>::iterator i = second.begin(); i; i--) {
-        std::cout << " " << *i << std::endl;
-    }
-    
-    std::cout << "enter index to get item from the first stack: ";
-    int index = read_int();
-    std::cout << "use exception handler? ('y' to use): ";
+    std::cout << "use dublicates in stack? ('y' to use): ";
     std::string choice = read_string();
+    
+    Stack<Show> stack(choice[0] == 'y');
+    
+    std::cout << "enter count for the stack: ";
+    int count = 0;
+    while (true) {
+        count = read_int();
+        if (count < 0) {
+            std::cout << "count cannot be < 0" << std::endl;
+        } else break;
+    }
+    
+    std::cout << "items for the stack:" << std::endl;
+    for (int i = 0; i < count; i++) {
+        std::cout << "item " << (i + 1) << std::endl;
+        Show show = read_show(i);
+        stack.push(show);
+        std::cout << std::endl;
+    }
+    
+    print_stack(stack);
+    
+    std::cout << "sorting the stack" << std::endl;
+    stack.sort();
+    print_stack(stack);
+    
+    std::cout << "enter index to get item from the stack: ";
+    int index = read_int();
+    
+    std::cout << "use exception handler? ('y' to use): ";
+    choice = read_string();
+    
     if (choice[0] == 'y') {
         try {
-            int item = *(first.begin() - index);
+            Show item = *(stack.begin() - index);
             std::cout << index << " item is " << item << std::endl;
         } catch (std::logic_error error) {
-            std::cout << "error getting " << index << " item from first stack\n";
+            std::cout << "error getting " << index << " item from the stack\n";
             std::cout << error.what() << std::endl;
         }
     } else {
-        int item = *(first.begin() - index);
+        Show item = *(stack.begin() - index);
         std::cout << index << " item is " << item << std::endl;
     }
+    
+    std::cout << "enter number of items to remove from the top of the stack: ";
+    index = read_int();
+    
+    if (index >= 0) {
+        for (int i = 0; i < index; i++) {
+            try {
+                stack.pop();
+            } catch(std::logic_error) {
+                std::cout << "bottom of the stack has been reached" << std::endl;
+                break;
+            }
+        }
+        std::cout << "Removed " << index << " items" << std::endl;
+    } else {
+        std::cout << index << " is invalid number of items" << std::endl;
+    }
+    
+    print_stack(stack);
     
     return 0;
 }
